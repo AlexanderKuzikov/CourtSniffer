@@ -1,8 +1,27 @@
 # DECISIONS
 
-## 2026-07-15: Создание проекта
+## 2026-07-15
 
-- Отдельный репозиторий (не пакет в CourtFlow)
-- Поиск через `op=sf` → `op=r`
-- Формат ответа: `SearchResult { caseNumber, url, uid, judge, result, legalForceDate, parties[] }`
-- Два режима CLI: `--case` (номер дела), `--party` (участники)
+### Адаптеры как в CourtFlow
+Каждый тип суда — отдельный класс с единым интерфейсом SearchAdapter.
+Диспетчеризация через registry.getSearchAdapter(courtType).
+
+### Поиск через op=sf → op=r
+Страница поиска (search form) отправляет GET на search results.
+Парсим таблицу — колонки: номер, дата, категория, судья, решение, **дата вступления в силу**.
+
+### delo_id для разных типов судов:
+| Тип | delo_id |
+|-----|---------|
+| Районный суд (гражданские) | 1540005 |
+| Апелляция | 5 |
+| Кассация | 2800001 |
+| Мировые | — (своя структура) |
+
+### RuCaptcha из CourtFlow
+Модули rucaptcha.ts и session.ts скопированы как есть.
+Ключи читаются из .env (RUCAPTCHA_API_KEY).
+
+### Справочник судов
+Скопирован из CourtHarvest2 (10 225 записей).
+Поле `website` маппится в subdomain CourtFlow.

@@ -1,33 +1,12 @@
-// Поиск по районным судам (*.sudrf.ru), апелляции, кассации
-// Использует op=sf → op=r (без капчи)
+// Районные суды (*.sudrf.ru) — без капчи
+// delo_id=1540005 — гражданские дела первой инстанции
+// op=sf → op=r
 
 import * as cheerio from 'cheerio';
 import iconv from 'iconv-lite';
 import https from 'https';
-import type { SearchRequest, SearchResult } from './types.js';
-
-const DELO_IDS: Record<string, string> = {
-  district: '1540005',
-  appeal: '5',
-  cassation: '2800001',
-};
-
-function buildSearchUrl(req: SearchRequest): string {
-  const base = `https://${req.courtId}.sudrf.ru/modules.php`;
-  const params = new URLSearchParams();
-  params.set('name', 'sud_delo');
-  params.set('srv_num', '1');
-  params.set('name_op', 'r');
-  params.set('delo_id', DELO_IDS[req.courtType] || '1540005');
-  params.set('case_type', '0');
-  params.set('new', '0');
-  if (req.caseNumber) params.set('g1_case__CASE_NUMBERSS', req.caseNumber);
-  if (req.defendant) params.set('G1_PARTS__NAMESS', req.defendant);
-  if (req.filingDateFrom) params.set('g1_case__ENTRY_DATE1D', req.filingDateFrom);
-  if (req.filingDateTo) params.set('g1_case__ENTRY_DATE2D', req.filingDateTo);
-  params.set('Submit', 'Найти');
-  return base + '?' + params.toString();
-}
+import type { SearchRequest, SearchResult } from '../types.js';
+import type { SearchAdapter } from './types.js';
 
 function fetchHtml(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -52,34 +31,21 @@ function fetchHtml(url: string): Promise<string> {
   });
 }
 
-function parseResultsTable(html: string, req: SearchRequest): SearchResult[] {
+function parseResults(html: string, req: SearchRequest): SearchResult[] {
   const $ = cheerio.load(html);
   const results: SearchResult[] = [];
-
-  // Таблица результатов — третья по счёту
   const table = $('table').eq(3);
   if (!table.length) return results;
 
-  // Определяем колонки по заголовку
-  const headers: string[] = [];
-  table.find('tr').first().find('th').each((_, th) => {
-    headers.push($(th).text().replace(/\s+/g, ' ').trim());
-  });
-
-  // Парсим строки
   table.find('tr').slice(1).each((_, row) => {
     const cells = $(row).find('td');
     if (cells.length < 5) return;
-
-    const caseLink = cells.eq(0).find('a');
-    const caseUrl = caseLink.attr('href') || '';
-    const caseNumber = caseLink.text().trim().split(' ')[0] || '';
-
+    const link = cells.eq(0).find('a');
+    const href = link.attr('href') || '';
+    const num = link.text().trim().split(/\s+/)[0] || '';
     results.push({
-      caseNumber,
-      caseUrl: caseUrl.startsWith('http')
-        ? caseUrl
-        : `https://${req.courtId}.sudrf.ru${caseUrl}`,
+      caseNumber: num,
+      caseUrl: href.startsWith('http') ? href : `https://${req.courtId}.sudrf.ru${href}`,
       uid: '',
       judge: cells.eq(3).text().trim() || null,
       result: cells.eq(5).text().trim() || null,
@@ -91,23 +57,49 @@ function parseResultsTable(html: string, req: SearchRequest): SearchResult[] {
       courtType: req.courtType,
     });
   });
-
   return results;
 }
 
-class DistrictSearchAdapter implements SearchAdapter {
+export class DistrictSearchAdapter implements SearchAdapter {
+  buildSearchUrl(req: SearchRequest): string {
+    // PHP-форма ожидает ВСЕ поля из формы, даже пустые
+    const base = `https://${req.courtId}.sudrf.ru/modules.php`;
+    const q = [
+      'name=sud_delo', 'srv_num=1',
+      'name_op=r', 'delo_id=1540005', 'case_type=0', 'new=0',
+      'G1_PARTS__NAMESS=' + encodeURIComponent(req.defendant || req.plaintiff || ''),
+      'g1_case__CASE_NUMBERSS=' + encodeURIComponent(req.caseNumber || ''),
+      'g1_case__JUDICIAL_UIDSS=',
+      'delo_table=g1_case',
+      'g1_case__ENTRY_DATE1D=' + encodeURIComponent(req.filingDateFrom || ''),
+      'g1_case__ENTRY_DATE2D=' + encodeURIComponent(req.filingDateTo || ''),
+      'G1_CASE__JUDGE=',
+      'g1_case__RESULT_DATE1D=', 'g1_case__RESULT_DATE2D=',
+      'G1_CASE__RESULT=', 'G1_CASE__BUILDING_ID=', 'G1_CASE__COURT_STRUCT=',
+      'G1_EVENT__EVENT_NAME=', 'G1_EVENT__EVENT_DATEDD=',
+      'G1_PARTS__PARTS_TYPE=',
+      'G1_PARTS__INN_STRSS=', 'G1_PARTS__KPP_STRSS=', 'G1_PARTS__OGRN_STRSS=', 'G1_PARTS__OGRNIP_STRSS=',
+      'G1_RKN_ACCESS_RESTRICTION__RKN_REASON=',
+      'g1_rkn_access_restriction__RKN_RESTRICT_URLSS=',
+      'g1_requirement__ACCESSION_DATE1D=', 'g1_requirement__ACCESSION_DATE2D=',
+      'G1_REQUIREMENT__CATEGORY=', 'g1_requirement__ESSENCESS=',
+      'g1_requirement__JOIN_END_DATE1D=', 'g1_requirement__JOIN_END_DATE2D=',
+      'G1_REQUIREMENT__PUBLICATION_ID=',
+      'G1_DOCUMENT__PUBL_DATE1D=', 'G1_DOCUMENT__PUBL_DATE2D=',
+      'G1_CASE__VALIDITY_DATE1D=', 'G1_CASE__VALIDITY_DATE2D=',
+      'G1_ORDER_INFO__ORDER_DATE1D=', 'G1_ORDER_INFO__ORDER_DATE2D=',
+      'G1_ORDER_INFO__ORDER_NUMSS=', 'G1_ORDER_INFO__EXTERNALKEYSS=',
+      'G1_ORDER_INFO__STATE_ID=', 'G1_ORDER_INFO__RECIP_ID=',
+      'Submit=%CD%E0%E9%F2%E8',  // Найти в CP1251
+    ];
+    return base + '?' + q.join('&');
+  }
+
   async searchByCaseNumber(req: SearchRequest): Promise<SearchResult[]> {
-  const url = buildSearchUrl(req);
-  const html = await fetchHtml(url);
-  return parseResultsTable(html, req);
-}
+    return parseResults(await fetchHtml(this.buildSearchUrl(req)), req);
+  }
 
   async searchByParty(req: SearchRequest): Promise<SearchResult[]> {
-  const url = buildSearchUrl(req);
-  const html = await fetchHtml(url);
-  return parseResultsTable(html, req);
-}
-  buildSearchUrl(req: SearchRequest): string {
-    return buildSearchUrl(req);
+    return parseResults(await fetchHtml(this.buildSearchUrl(req)), req);
   }
 }

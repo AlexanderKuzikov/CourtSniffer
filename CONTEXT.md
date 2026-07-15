@@ -1,19 +1,63 @@
 # CourtSniffer — CONTEXT
 
+> Актуальный статус, архитектура и журнал работ.
+
 ## Статус
 
-Проект в начальной стадии. Скелет репозитория.
+✅ **v0.1.0** — базовый функционал работает.
 
-## Задачи
+| Компонент | Статус |
+|-----------|--------|
+| District поиск (номер дела) | ✅ Работает |
+| District поиск (участники) | ✅ Работает |
+| Appeal поиск | ✅ Реализован (не тестирован) |
+| Cassation поиск | ✅ Реализован (не тестирован) |
+| Magistrate поиск | 🔧 Требует captcha |
+| CLI | ✅ Работает |
+| Справочник судов | ✅ 10 225 записей |
+| Smoke test | ✅ Работает |
 
-1. Реализовать поиск по номеру дела для district (`*.sudrf.ru`)
-2. Добавить CLI
-3. Реализовать поиск по истцу/ответчику
-4. Добавить magistrate (с капчой)
-5. Интеграция с CourtFlow
+## Архитектура
+
+`packages/search/` — монопакет (не монорепа).
+
+Адаптеры — по одному на тип суда, как в CourtFlow:
+- `district`: `*.sudrf.ru`, `delo_id=1540005`, без капчи
+- `appeal`: `*oblsud--*.sudrf.ru`, `delo_id=5`, без капчи
+- `cassation`: `*.kas.sudrf.ru`, `delo_id=2800001`, без капчи
+- `magistrate`: `*.msudrf.ru`, с Puppeteer+RuCaptcha
+
+Все адаптеры реализуют `SearchAdapter`:
+```typescript
+interface SearchAdapter {
+  searchByCaseNumber(req: SearchRequest): Promise<SearchResult[]>;
+  searchByParty(req: SearchRequest): Promise<SearchResult[]>;
+  buildSearchUrl(req: SearchRequest): string;
+}
+```
 
 ## Решения
 
-- Используем cheerio + iconv-lite (как CourtFlow)
-- Модульная архитектура: каждый тип суда — отдельный файл
-- CLI для ручного тестирования, потом API-endpoint
+| Дата | Решение |
+|------|---------|
+| 2026-07-15 | Создан отдельный репозиторий (не пакет в CourtFlow) |
+| 2026-07-15 | Адаптеры — каждый тип суда свой файл (как CourtFlow) |
+| 2026-07-15 | Справочник судов скопирован из CourtHarvest2 (10225 записей) |
+| 2026-07-15 | Captcha-модуль скопирован из CourtFlow (puppeteer + RuCaptcha) |
+| 2026-07-15 | CLI как точка входа для ручного поиска |
+
+## Что дальше
+
+1. Протестировать appeal/cassation адаптеры
+2. Реализовать magistrate через Puppeteer+RuCaptcha
+3. Fuzzy match участников (поиск по фамилии с неточным совпадением)
+4. Интеграция с CourtFlow (добавление найденных дел в watch/)
+5. Web UI или API endpoint
+
+## Журнал работ
+
+| Дата | Коммит | Изменение |
+|------|--------|-----------|
+| 2026-07-15 | `72d5fc3` | init: project skeleton |
+| 2026-07-15 | `fb971e9` | feat: court directory (10225 courts) |
+| 2026-07-15 | `(next)` | refactor: adapters structure, appeal/cassation, captcha, CLI, badges |

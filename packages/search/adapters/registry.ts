@@ -13,7 +13,7 @@ const adapters: Partial<Record<CourtType, SearchAdapter>> = {
 };
 
 export function getSearchAdapter(courtType: CourtType): SearchAdapter {
-  const adapter = adapters[courtType];
-  if (!adapter) throw new Error(`Нет адаптера поиска для типа суда: ${courtType}`);
-  return adapter;
+  const a = adapters[courtType];
+  if (!a) throw new Error(`Нет адаптера для типа суда: ${courtType}`);
+  return a;
 }
