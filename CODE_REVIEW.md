@@ -9,7 +9,39 @@
 
 **НУЖНЫ ПРАВКИ** — есть 1 блокер (XSS в UI) + несколько важных (отсутствие LICENSE, устаревший бейдж тестов, падение без `.env`, небрежная обработка ненайденного суда в CLI).
 
-**Суть:** Проект с хорошей архитектурной задумкой (адаптеры + registry + barrel + ADR) и реальной domain-экспертизой по sudrf.ru/CP1251/captcha. Адаптеры разделены осознанно (требование расширяемости — каждый тип суда развивается независимо). Тесты проводились агентом Goose (в `.goose/`), артефакты удалены — бейдж `35_passing` устарел. UI содержит XSS, LICENSE отсутствует.
+**Суть:** Проект с хорошей архитектурной задумкой (адаптеры + registry + barrel + ADR) и реальной domain-экспертизой по sudrf.ru/CP1251/captcha. Адаптеры разделены осознанно (требование расширяемости — каждый тип суда развится независимо). Тесты проводились агентом Goose (в `.goose/`), артефакты удалены — бейдж `35_passing` устарел. UI содержит XSS, LICENSE отсутствует.
+
+---
+
+## Статус исправлений (post-review, 2026-07-15)
+
+Ревью ниже зафиксировано «как было» на момент `d62795a`. После ревью внесены правки:
+
+### Закрыто ✅
+
+| Замечание | Что сделано |
+|-----------|-------------|
+| **Блокер: XSS в UI** | Инлайн-`onclick` → event delegation (`data-uid` + `addEventListener`). `esc()` экранирует `&<>"'`, `safeUrl()` пропускает только `http(s)://`. |
+| `process.loadEnvFile` бросает ENOENT | `config.ts`: try/catch, `.env` опционален. Smoke-тест без `.env` проходит. |
+| CLI не выходит при ненайденном суде | `cli.ts`: добавлен `process.exit(1)`. |
+| Нет файла LICENSE | Создан `LICENSE` — Apache-2.0 full text. |
+| Бейдж `Tests-35_passing` | Удалён из README. |
+| `uid: ''` в appeal/cassation | Добавлено извлечение `case_uid` через regex (как в district). |
+| O(n) lookup в `courts.ts` | `Map<subdomain>` + `Map<code>` — O(1). Вынесен `toCourtInfo()` factory. |
+| `core/errors.ts` — `page: any`, широкое `'captcha'` | `html: string`, сужено до `kcaptchaForm`. |
+| `server.ts` — `execSync` unused, нет типизации, затенение `resolve`, `err.message` утекает, `courtType` не валидируется | Полная типизация (`@types/express`), `execSync` удалён, `checkPort(done)`, `isCourtType()` guard, `console.error` + `errMsg()`. `tsc --noEmit` — 0 ошибок (было 13). |
+| README — ложный бейдж, нет API-референса | Переписан: реальные примеры вывода, CLI-таблица, API-таблица, раздел «Почему так». |
+| `CONTEXT.md` — `(current)` в журнале | Журнал актуализирован, добавлены новые решения в `DECISIONS.md`. |
+
+### Не закрыто (остаётся в TODO)
+
+| Замечание | Причина |
+|-----------|---------|
+| `caseUrl` для appeal/cassation — возможен неверный домен | Требует верификации на реальном cassation-суде. |
+| `tsconfig.noImplicitThis: false` | Не трогал — ослабление ради timeout-handler, low-risk. |
+| `cli.ts:79` — `let results: any[]` | Мелочь, не блокирует. |
+| `magistrate.ts:16` — `URLSearchParams` (UTF-8) вместо CP1251 | WIP, учесть при реализации. |
+| `district.ts` timeout-handler — `this.destroy()` без очистки res | Low-traffic (CLI), низкий приоритет. |
 
 ---
 
