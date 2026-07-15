@@ -62,6 +62,7 @@ async function main() {
     console.error(`⚠️  Суд с ID "${opts.court}" не найден в справочнике.`);
     console.error('   Используй --list для поиска суда по названию');
     console.error('   Например: npm run search -- --list свердловский');
+    process.exit(1);
   }
 
   const adapter = getSearchAdapter(courtType);

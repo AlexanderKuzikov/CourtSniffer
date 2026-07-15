@@ -26,10 +26,6 @@ export interface CourtInfo {
   website: string;
 }
 
-const raw = JSON.parse(readFileSync(COURTS_PATH, 'utf-8'));
-const courts: Record<string, RawCourtEntry> = raw.courts;
-const entries = Object.values(courts);
-
 const COURT_TYPE_CODE: Record<string, CourtType> = {
   RS: 'district',
   MS: 'magistrate',
@@ -69,26 +65,7 @@ function extractRegion(code: string): string {
   return code.substring(0, 2);
 }
 
-export function findCourtBySubdomain(subdomain: string): CourtInfo | null {
-  for (const e of entries) {
-    if (extractSubdomain(e.website) === subdomain) {
-      return {
-        code: e.code,
-        name: e.name,
-        courtType: inferCourtType(e.court_type),
-        subdomain,
-        region: extractRegion(e.code),
-        address: e.address,
-        website: e.website,
-      };
-    }
-  }
-  return null;
-}
-
-export function findCourtByCode(code: string): CourtInfo | null {
-  const e = courts[code];
-  if (!e) return null;
+function toCourtInfo(e: RawCourtEntry): CourtInfo {
   return {
     code: e.code,
     name: e.name,
@@ -100,33 +77,39 @@ export function findCourtByCode(code: string): CourtInfo | null {
   };
 }
 
+const raw = JSON.parse(readFileSync(COURTS_PATH, 'utf-8')) as { courts: Record<string, RawCourtEntry> };
+const courts = raw.courts;
+const entries = Object.values(courts);
+
+// Индексы для O(1)-lookup — критично для viewer (каждый запрос дергает lookup).
+// Строятся один раз при загрузке модуля; findCourtsByName остаётся линейным (текстовый поиск).
+const bySubdomain = new Map<string, CourtInfo>();
+const byCode = new Map<string, CourtInfo>();
+for (const e of entries) {
+  const info = toCourtInfo(e);
+  if (info.subdomain) bySubdomain.set(info.subdomain, info);
+  byCode.set(info.code, info);
+}
+
+export function findCourtBySubdomain(subdomain: string): CourtInfo | null {
+  return bySubdomain.get(subdomain) ?? null;
+}
+
+export function findCourtByCode(code: string): CourtInfo | null {
+  return byCode.get(code) ?? null;
+}
+
 export function findCourtsByRegion(region: string): CourtInfo[] {
   return entries
     .filter(e => e.code.startsWith(region))
-    .map(e => ({
-      code: e.code,
-      name: e.name,
-      courtType: inferCourtType(e.court_type),
-      subdomain: extractSubdomain(e.website),
-      region: extractRegion(e.code),
-      address: e.address,
-      website: e.website,
-    }));
+    .map(toCourtInfo);
 }
 
 export function findCourtsByName(query: string): CourtInfo[] {
   const q = query.toLowerCase();
   return entries
     .filter(e => e.name.toLowerCase().includes(q))
-    .map(e => ({
-      code: e.code,
-      name: e.name,
-      courtType: inferCourtType(e.court_type),
-      subdomain: extractSubdomain(e.website),
-      region: extractRegion(e.code),
-      address: e.address,
-      website: e.website,
-    }))
+    .map(toCourtInfo)
     .slice(0, 50);
 }
 

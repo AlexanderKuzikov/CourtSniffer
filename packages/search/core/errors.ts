@@ -6,7 +6,8 @@ export class CourtFlowError extends Error {
   }
 }
 
-// Check if page requires captcha
-export function isCaptchaPage(page: any): boolean {
-  return page.includes('kcaptchaForm') || page.includes('captcha');
+// Маркер капчи в HTML msudrf.ru — форма kcaptchaForm.
+// Сужено с общего 'captcha' (давало false positive на любое упоминание слова в тексте дела).
+export function isCaptchaPage(html: string): boolean {
+  return html.includes('kcaptchaForm');
 }

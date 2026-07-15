@@ -168,6 +168,22 @@
   let allResults = [];
   let currentFilter = '';
 
+  // ─── Helpers ────────────────────────────────────────
+  // Экранирует HTML-контент и значения атрибутов (включая кавычки).
+  function esc(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  // Только http(s)-ссылки, иначе заглушка (защита от javascript: URL в href).
+  function safeUrl(u) {
+    const s = String(u ?? '');
+    return /^https?:\/\//i.test(s) ? s : '#';
+  }
+
   // ─── Initialization ─────────────────────────────────
   async function init() {
     const r = await fetch('/api/courts');
@@ -179,6 +195,9 @@
     else { cd.className = 'dot dot-warn'; cs.textContent = '⚠️ нет'; }
     toggleMode();
     loadCourtInfo('sverdlov--perm');
+    // Event delegation: клик по строке результата / элементу списка судов
+    document.getElementById('resultsTable').addEventListener('click', onResultsClick);
+    document.getElementById('courtResults').addEventListener('click', onCourtResultsClick);
   }
   init();
 
@@ -191,11 +210,17 @@
     courtTimer = setTimeout(async () => {
       const r = await fetch('/api/courts?q=' + encodeURIComponent(q));
       const list = await r.json();
-      el.innerHTML = list.map(c => `<div onclick="selectCourt('${c.subdomain}','${c.name}')">${c.name}</div>`).join('');
+      // data-subdomain — читается через dataset, не исполняется как код
+      el.innerHTML = list.map(c => `<div data-subdomain="${esc(c.subdomain)}">${esc(c.name)}</div>`).join('');
       el.style.display = list.length ? 'block' : 'none';
     }, 300);
   }
-  function selectCourt(id, name) {
+  function onCourtResultsClick(e) {
+    const item = e.target.closest('[data-subdomain]');
+    if (!item) return;
+    selectCourt(item.dataset.subdomain);
+  }
+  function selectCourt(id) {
     document.getElementById('courtId').value = id;
     document.getElementById('courtResults').style.display = 'none';
     loadCourtInfo(id);
@@ -238,6 +263,7 @@
         body = { courtId, caseNumber: num };
         const r = await fetch('/api/search/case-number', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Ошибка поиска');
         showResults(data.results, data.count);
       } else {
         const def = document.getElementById('defendant').value.trim();
@@ -247,10 +273,12 @@
         body = { courtId, defendant: def, plaintiff: '', from: from || undefined, to: to || undefined };
         const r = await fetch('/api/search/party', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Ошибка поиска');
         showResults(data.results, data.count);
       }
     } catch (err) {
-      document.getElementById('resultsTable').innerHTML = `<div class="empty"><h3>❌ Ошибка</h3><p>${err.message}</p></div>`;
+      document.getElementById('resultsTable').innerHTML = `<div class="empty"><h3>❌ Ошибка</h3><p>${esc(err.message)}</p></div>`;
+      document.getElementById('emptyState').style.display = 'none';
     }
     btn.disabled = false;
     btn.innerHTML = '🔍 Найти';
@@ -266,16 +294,17 @@
 
   function renderResults() {
     const filtered = currentFilter ? allResults.filter(r => r.courtType === currentFilter) : allResults;
-    const tbody = filtered.map(r => `
-      <tr onclick="openDetail('${r.caseNumber}', '${r.caseUrl}', '${r.uid}')" style="cursor:pointer">
+    // data-uid — ключ для openDetail; значения берутся из allResults, не из атрибутов
+    const tbody = filtered.map((r, i) => `
+      <tr data-uid="${esc(r.uid)}" data-idx="${i}" style="cursor:pointer">
         <td><b>${esc(r.caseNumber)}</b></td>
-        <td><span class="badge badge-${r.courtType}">${r.courtType || '?'}</span></td>
+        <td><span class="badge badge-${esc(r.courtType)}">${esc(r.courtType || '?')}</span></td>
         <td>${esc(r.judge || '—')}</td>
-        <td>${esc(r.result || '—').substring(0, 40)}</td>
-        <td>${r.legalForceDate || '—'}</td>
-        <td>${r.filingDate || '—'} → ${r.decisionDate || '—'}</td>
+        <td>${esc((r.result || '—').substring(0, 40))}</td>
+        <td>${esc(r.legalForceDate || '—')}</td>
+        <td>${esc(r.filingDate || '—')} → ${esc(r.decisionDate || '—')}</td>
       </tr>`).join('');
-    
+
     document.getElementById('resultsTable').innerHTML = `
       <table>
         <thead><tr>
@@ -284,6 +313,12 @@
         <tbody>${tbody || '<tr><td colspan="6" style="text-align:center;color:#64748b;padding:30px">Нет результатов</td></tr>'}</tbody>
       </table>`;
     document.getElementById('resultInfo').textContent = `Найдено ${filtered.length} из ${allResults.length} дел${currentFilter ? ' (фильтр: ' + currentFilter + ')' : ''}`;
+  }
+
+  function onResultsClick(e) {
+    const tr = e.target.closest('tr[data-uid]');
+    if (!tr) return;
+    openDetail(tr.dataset.uid);
   }
 
   function filterType(el, type) {
@@ -307,22 +342,24 @@
   }
 
   // ─── Detail ─────────────────────────────────────────
-  async function openDetail(caseNumber, caseUrl, uid) {
-    const r = allResults.find(x => x.uid === uid) || {};
+  async function openDetail(uid) {
+    const r = allResults.find(x => x.uid === uid);
+    if (!r) return;
     const courtInfo = await (await fetch('/api/courts/' + encodeURIComponent(r.courtId || ''))).json().catch(() => ({}));
-    
+    const url = safeUrl(r.caseUrl);
+
     document.getElementById('detailContent').innerHTML = `
-      <h2>${esc(caseNumber)}</h2>
-      <div class="case-num"><a href="${esc(caseUrl)}" target="_blank" style="color:#38bdf8">${esc(caseUrl)}</a></div>
+      <h2>${esc(r.caseNumber)}</h2>
+      <div class="case-num"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:#38bdf8">${esc(url)}</a></div>
       <table>
-        <tr><td>UID дела</td><td style="font-family:monospace;font-size:12px">${esc(uid)}</td></tr>
-        <tr><td>Тип суда</td><td><span class="badge badge-${r.courtType}">${r.courtType || '?'}</span></td></tr>
+        <tr><td>UID дела</td><td style="font-family:monospace;font-size:12px">${esc(r.uid)}</td></tr>
+        <tr><td>Тип суда</td><td><span class="badge badge-${esc(r.courtType)}">${esc(r.courtType || '?')}</span></td></tr>
         <tr><td>Суд</td><td>${esc(courtInfo.name || r.courtId || '—')}</td></tr>
         <tr><td>Судья</td><td>${esc(r.judge || '—')}</td></tr>
-        <tr><td>Дата поступления</td><td>${r.filingDate || '—'}</td></tr>
-        <tr><td>Дата решения</td><td>${r.decisionDate || '—'}</td></tr>
+        <tr><td>Дата поступления</td><td>${esc(r.filingDate || '—')}</td></tr>
+        <tr><td>Дата решения</td><td>${esc(r.decisionDate || '—')}</td></tr>
         <tr><td>Результат</td><td><strong>${esc(r.result || '—')}</strong></td></tr>
-        <tr><td style="color:#4ade80;font-weight:600">Дата вступления в законную силу</td><td style="color:#4ade80;font-weight:600">${r.legalForceDate || '—'}</td></tr>
+        <tr><td style="color:#4ade80;font-weight:600">Дата вступления в законную силу</td><td style="color:#4ade80;font-weight:600">${esc(r.legalForceDate || '—')}</td></tr>
       </table>
     `;
     document.getElementById('detailOverlay').classList.add('open');
@@ -338,8 +375,6 @@
     document.getElementById('resultInfo').textContent = '';
     document.getElementById('emptyState').style.display = 'block';
   }
-
-  function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 </script>
 </body>
 </html>

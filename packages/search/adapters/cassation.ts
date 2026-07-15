@@ -41,10 +41,12 @@ function parseResults(html: string, req: SearchRequest): SearchResult[] {
     const link = cells.eq(0).find('a');
     const href = link.attr('href') || '';
     const num = link.text().trim().split(/\s+/)[0] || '';
+    const uidMatch = href.match(/case_uid=([a-f0-9-]+)/i);
     results.push({
       caseNumber: num,
       caseUrl: href.startsWith('http') ? href : `https://${req.courtId}.sudrf.ru${href}`,
-      uid: '', judge: cells.eq(3).text().trim() || null,
+      uid: uidMatch ? uidMatch[1] : '',
+      judge: cells.eq(3).text().trim() || null,
       result: cells.eq(5).text().trim() || null,
       legalForceDate: cells.eq(6).text().trim() || null,
       filingDate: cells.eq(1).text().trim() || null,

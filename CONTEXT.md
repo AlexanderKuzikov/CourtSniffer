@@ -61,7 +61,12 @@ interface SearchAdapter {
 | 2026-07-15 | `72d5fc3` | init: project skeleton |
 | 2026-07-15 | `fb971e9` | feat: court directory (10225 courts) |
 | 2026-07-15 | `b155c24` | feat: search system with adapters, captcha, CLI |
-| 2026-07-15 | `(current)` | fix: CP1251 encoding for party search, uid extraction, table selection |
+| 2026-07-15 | `3582cb5` | refactor: adapters structure (like CourtFlow), remove prefixes |
+| 2026-07-15 | `38e474a` | fix: CP1251 encoding, uid extraction, robust table parsing |
+| 2026-07-15 | `0816d7b` | docs: Russian description, Apache-2.0 license, Node 24+ |
+| 2026-07-15 | `d62795a` | feat(ui): Web UI for CourtSniffer |
+| 2026-07-15 | `c8873ea`+ | docs: CODE_REVIEW.md (пятиосевое ревью) |
+| 2026-07-15 | (pending) | fix: security/robustness — XSS в UI, loadEnvFile try/catch, CLI exit, uid в appeal/cassation, Map-индекс courts, типизация server.ts, LICENSE Apache-2.0 |
 
 ## Недостатки / TODO
 
