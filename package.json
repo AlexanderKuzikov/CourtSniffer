@@ -1,0 +1,23 @@
+{
+  "name": "courtsniffer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CourtSniffer — поиск судебных дел на сайтах судов РФ по номеру дела, истцу и ответчику",
+  "type": "module",
+  "scripts": {
+    "search": "npx tsx packages/search/cli.ts",
+    "search:case": "npx tsx packages/search/cli.ts --case",
+    "search:party": "npx tsx packages/search/cli.ts --party",
+    "test": "npx vitest run",
+    "tsc": "npx tsc --noEmit"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "iconv-lite": "^0.6.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
