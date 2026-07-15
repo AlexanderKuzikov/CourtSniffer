@@ -4,3 +4,4 @@ export { findCourtBySubdomain, findCourtByCode, findCourtsByRegion, findCourtsBy
 export type { CourtInfo } from './courts.js';
 export type { SearchRequest, SearchResult, CourtType } from './types.js';
 export { hasCaptchaKeys, getRuCaptchaKey } from './config.js';
+export { encodeParam } from './encoding.js';

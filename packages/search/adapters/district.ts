@@ -5,6 +5,7 @@
 import * as cheerio from 'cheerio';
 import iconv from 'iconv-lite';
 import https from 'https';
+import { encodeParam } from '../encoding.js';
 import type { SearchRequest, SearchResult } from '../types.js';
 import type { SearchAdapter } from './types.js';
 
@@ -34,7 +35,8 @@ function fetchHtml(url: string): Promise<string> {
 function parseResults(html: string, req: SearchRequest): SearchResult[] {
   const $ = cheerio.load(html);
   const results: SearchResult[] = [];
-  const table = $('table').eq(3);
+  // Ищем таблицу результатов — ту, что содержит колонку "№ дела"
+  const table = $('table').filter((_, t) => $(t).text().includes('№ дела')).first();
   if (!table.length) return results;
 
   table.find('tr').slice(1).each((_, row) => {
@@ -43,10 +45,11 @@ function parseResults(html: string, req: SearchRequest): SearchResult[] {
     const link = cells.eq(0).find('a');
     const href = link.attr('href') || '';
     const num = link.text().trim().split(/\s+/)[0] || '';
+    const uidMatch = href.match(/case_uid=([a-f0-9-]+)/i);
     results.push({
       caseNumber: num,
       caseUrl: href.startsWith('http') ? href : `https://${req.courtId}.sudrf.ru${href}`,
-      uid: '',
+      uid: uidMatch ? uidMatch[1] : '',
       judge: cells.eq(3).text().trim() || null,
       result: cells.eq(5).text().trim() || null,
       legalForceDate: cells.eq(6).text().trim() || null,
@@ -67,12 +70,12 @@ export class DistrictSearchAdapter implements SearchAdapter {
     const q = [
       'name=sud_delo', 'srv_num=1',
       'name_op=r', 'delo_id=1540005', 'case_type=0', 'new=0',
-      'G1_PARTS__NAMESS=' + encodeURIComponent(req.defendant || req.plaintiff || ''),
+      'G1_PARTS__NAMESS=' + encodeParam(req.defendant || req.plaintiff || ''),
       'g1_case__CASE_NUMBERSS=' + encodeURIComponent(req.caseNumber || ''),
       'g1_case__JUDICIAL_UIDSS=',
       'delo_table=g1_case',
-      'g1_case__ENTRY_DATE1D=' + encodeURIComponent(req.filingDateFrom || ''),
-      'g1_case__ENTRY_DATE2D=' + encodeURIComponent(req.filingDateTo || ''),
+      'g1_case__ENTRY_DATE1D=' + (req.filingDateFrom || ''),
+      'g1_case__ENTRY_DATE2D=' + (req.filingDateTo || ''),
       'G1_CASE__JUDGE=',
       'g1_case__RESULT_DATE1D=', 'g1_case__RESULT_DATE2D=',
       'G1_CASE__RESULT=', 'G1_CASE__BUILDING_ID=', 'G1_CASE__COURT_STRUCT=',

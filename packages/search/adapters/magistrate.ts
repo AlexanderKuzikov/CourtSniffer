@@ -1,4 +1,5 @@
 // Мировые суды (*.msudrf.ru) — с капчей через Puppeteer+RuCaptcha
+import { encodeParam } from '../encoding.js';
 import type { SearchRequest, SearchResult } from '../types.js';
 import type { SearchAdapter } from './types.js';
 import { getRuCaptchaKey, hasCaptchaKeys } from '../config.js';

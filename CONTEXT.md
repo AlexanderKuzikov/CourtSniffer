@@ -60,4 +60,13 @@ interface SearchAdapter {
 |------|--------|-----------|
 | 2026-07-15 | `72d5fc3` | init: project skeleton |
 | 2026-07-15 | `fb971e9` | feat: court directory (10225 courts) |
-| 2026-07-15 | `(next)` | refactor: adapters structure, appeal/cassation, captcha, CLI, badges |
+| 2026-07-15 | `b155c24` | feat: search system with adapters, captcha, CLI |
+| 2026-07-15 | `(current)` | fix: CP1251 encoding for party search, uid extraction, table selection |
+
+## Недостатки / TODO
+
+1. Appeal/cassation: не тестированы (нет подходящих номеров дел под рукой)
+2. Magistrate: требует Puppeteer+RuCaptcha (WIP)
+3. Party search: возвращает до 24 результатов без прокрутки (pagination)
+4. Нет fuzzy match для ФИО участников
+5. Нет интеграции с CourtFlow (авто-добавление дел в watch/)

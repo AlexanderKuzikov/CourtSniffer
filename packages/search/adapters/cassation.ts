@@ -5,6 +5,7 @@
 import * as cheerio from 'cheerio';
 import iconv from 'iconv-lite';
 import https from 'https';
+import { encodeParam } from '../encoding.js';
 import type { SearchRequest, SearchResult } from '../types.js';
 import type { SearchAdapter } from './types.js';
 
@@ -32,7 +33,7 @@ function fetchHtml(url: string): Promise<string> {
 function parseResults(html: string, req: SearchRequest): SearchResult[] {
   const $ = cheerio.load(html);
   const results: SearchResult[] = [];
-  const table = $('table').eq(3);
+  const table = $('table').filter((_, t) => $(t).text().includes('№ дела')).first();
   if (!table.length) return results;
   table.find('tr').slice(1).each((_, row) => {
     const cells = $(row).find('td');
@@ -60,7 +61,7 @@ export class CassationSearchAdapter implements SearchAdapter {
     const q = [
       'name=sud_delo', 'srv_num=1',
       'name_op=r', 'delo_id=2800001', 'case_type=4', 'new=0',
-      'G1_PARTS__NAMESS=' + encodeURIComponent(req.defendant || req.plaintiff || ''),
+      'G1_PARTS__NAMESS=' + encodeParam(req.defendant || req.plaintiff || ''),
       'g1_case__CASE_NUMBERSS=' + encodeURIComponent(req.caseNumber || ''),
       'g1_case__JUDICIAL_UIDSS=', 'delo_table=g1_case',
       'g1_case__ENTRY_DATE1D=' + encodeURIComponent(req.filingDateFrom || ''),
