@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CourtSniffer 🕵️</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; font-size: 14px; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    
+    /* Header */
+    header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-bottom: 2px solid #334155; padding: 16px 24px; display: flex; align-items: center; gap: 14px; }
+    header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(90deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    header .subtitle { color: #94a3b8; font-size: 12px; margin-left: auto; }
+
+    /* Layout */
+    .app { display: grid; grid-template-columns: 320px 1fr; gap: 0; height: calc(100vh - 60px); }
+    @media (max-width: 800px) { .app { grid-template-columns: 1fr; } }
+
+    /* Sidebar */
+    .sidebar { background: #1e293b; padding: 16px; overflow-y: auto; border-right: 1px solid #334155; }
+    .sidebar h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin: 16px 0 8px; }
+    .sidebar h2:first-child { margin-top: 0; }
+    .sidebar label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 3px; }
+    .sidebar input, .sidebar select { width: 100%; padding: 7px 10px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #e2e8f0; font-size: 13px; margin-bottom: 8px; }
+    .sidebar input:focus, .sidebar select:focus { outline: none; border-color: #38bdf8; }
+    .sidebar .btn { width: 100%; padding: 8px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
+    .btn-primary { background: linear-gradient(135deg, #38bdf8, #6366f1); color: #fff; }
+    .btn-primary:hover { opacity: .9; }
+    .btn-secondary { background: #334155; color: #e2e8f0; }
+    .btn-secondary:hover { background: #475569; }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .hint { font-size: 11px; color: #64748b; margin: -4px 0 8px; }
+
+    /* Court search in sidebar */
+    .court-search { position: relative; }
+    .court-search input { padding-right: 30px; }
+    .court-search .clear-btn { position: absolute; right: 6px; top: 24px; background: none; border: none; color: #64748b; cursor: pointer; font-size: 16px; }
+    .court-results { position: absolute; z-index: 10; background: #1e293b; border: 1px solid #334155; border-radius: 6px; max-height: 200px; overflow-y: auto; width: 100%; display: none; }
+    .court-results div { padding: 6px 10px; font-size: 12px; cursor: pointer; }
+    .court-results div:hover { background: #334155; }
+
+    /* Main content */
+    .main { padding: 16px; overflow-y: auto; }
+    .main h2 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #e2e8f0; }
+
+    /* Results table */
+    .results { width: 100%; }
+    .results table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .results th { text-align: left; padding: 8px 10px; background: #1e293b; color: #94a3b8; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 2px solid #334155; white-space: nowrap; }
+    .results td { padding: 7px 10px; border-bottom: 1px solid #1e293b; vertical-align: top; }
+    .results tr:hover td { background: #1e293b; }
+    .results .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+    .badge-district { background: #1e3a5f; color: #60a5fa; }
+    .badge-appeal { background: #1a3a1a; color: #4ade80; }
+    .badge-cassation { background: #3a2a1a; color: #fbbf24; }
+    .badge-magistrate { background: #2a1a3a; color: #c084fc; }
+    .empty { text-align: center; padding: 60px 20px; color: #475569; }
+    .empty h3 { font-size: 18px; margin-bottom: 6px; }
+    .empty p { font-size: 13px; }
+    .result-count { font-size: 12px; color: #64748b; margin-bottom: 10px; }
+
+    /* Detail panel */
+    .detail { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100; align-items: center; justify-content: center; }
+    .detail.open { display: flex; }
+    .detail-card { background: #1e293b; border-radius: 12px; width: 600px; max-width: 90vw; max-height: 80vh; overflow-y: auto; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+    .detail-card h2 { font-size: 16px; margin-bottom: 4px; color: #38bdf8; }
+    .detail-card .case-num { font-size: 12px; color: #64748b; margin-bottom: 16px; word-break: break-all; }
+    .detail-card table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .detail-card td { padding: 4px 8px; border-bottom: 1px solid #334155; }
+    .detail-card td:first-child { color: #94a3b8; width: 40%; }
+    .detail-card .close-btn { float: right; background: none; border: none; color: #64748b; font-size: 20px; cursor: pointer; }
+
+    /* Spinner */
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #38bdf8; border-top-color: transparent; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Quick filters */
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .filters .chip { padding: 4px 10px; border-radius: 12px; font-size: 11px; background: #1e293b; border: 1px solid #334155; cursor: pointer; color: #94a3b8; }
+    .filters .chip.active { background: #1e3a5f; border-color: #38bdf8; color: #38bdf8; }
+
+    /* Status */
+    .status-bar { display: flex; gap: 16px; padding: 0 24px 10px; background: #0f172a; font-size: 11px; color: #475569; border-bottom: 1px solid #1e293b; }
+    .status-bar span { display: flex; align-items: center; gap: 4px; }
+    .status-bar .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .dot-ok { background: #4ade80; }
+    .dot-warn { background: #fbbf24; }
+    .dot-off { background: #64748b; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🕵️ CourtSniffer</h1>
+  <span class="subtitle">поиск судебных дел на сайтах судов РФ</span>
+</header>
+<div class="status-bar">
+  <span><span class="dot dot-ok"></span> Справочник: <span id="courtCount">—</span></span>
+  <span><span class="dot" id="captchaDot"></span> RuCaptcha: <span id="captchaStatus">—</span></span>
+  <span><span class="dot dot-ok"></span> type <b>district</b></span>
+</div>
+<div class="app">
+  <div class="sidebar">
+    <h2>🏛️ Суд</h2>
+    <div class="court-search">
+      <label>Поиск суда по названию</label>
+      <input id="courtSearch" placeholder="Например: свердловский" oninput="searchCourts(this.value)">
+      <button class="clear-btn" onclick="clearCourt()">&times;</button>
+      <div class="court-results" id="courtResults"></div>
+    </div>
+    <label style="margin-top: 8px">ID суда</label>
+    <input id="courtId" value="sverdlov--perm" onchange="loadCourtInfo(this.value)" placeholder="sverdlov--perm">
+    <div id="courtInfo" style="font-size:11px;color:#64748b;margin:-4px 0 8px"></div>
+
+    <h2>🔍 Режим поиска</h2>
+    <select id="searchMode" onchange="toggleMode()">
+      <option value="case">По номеру дела</option>
+      <option value="party" selected>По участникам</option>
+    </select>
+
+    <div id="caseFields">
+      <label>Номер дела</label>
+      <input id="caseNumber" placeholder="2-1234/2024">
+    </div>
+    <div id="partyFields">
+      <label>ФИО ответчика / название истца</label>
+      <input id="defendant" value="Кислицин" placeholder="Фамилия или название">
+      <label>Дата поступления с</label>
+      <input id="dateFrom" placeholder="ДД.ММ.ГГГГ">
+      <label>по</label>
+      <input id="dateTo" placeholder="ДД.ММ.ГГГГ">
+    </div>
+
+    <button class="btn btn-primary" onclick="doSearch()" id="searchBtn">🔍 Найти</button>
+    <button class="btn btn-secondary" onclick="clearResults()">Очистить</button>
+
+    <h2>⚡ Быстрые тесты</h2>
+    <button class="btn btn-secondary" onclick="quickTest('case','2-1234/2024')">📋 Дело 2-1234/2024</button>
+    <button class="btn btn-secondary" onclick="quickTest('party','Кислицин')">👤 Ответчик Кислицин</button>
+    <button class="btn btn-secondary" onclick="quickTest('party','ООО УК Тихий Компрос')">🏢 Истец ООО УК</button>
+  </div>
+
+  <div class="main">
+    <div class="filters">
+      <span class="chip" onclick="filterType(this,'')">Все</span>
+      <span class="chip" onclick="filterType(this,'district')">Районные</span>
+      <span class="chip" onclick="filterType(this,'appeal')">Апелляция</span>
+      <span class="chip" onclick="filterType(this,'cassation')">Кассация</span>
+      <span class="chip" onclick="filterType(this,'magistrate')">Мировые</span>
+    </div>
+    <div id="resultInfo" class="result-count"></div>
+    <div class="results" id="resultsTable"></div>
+    <div class="empty" id="emptyState">
+      <h3>🕵️ Начните поиск</h3>
+      <p>Выберите суд и режим в боковой панели, затем нажмите «Найти»</p>
+    </div>
+  </div>
+</div>
+
+<div class="detail" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+  <div class="detail-card" id="detailCard">
+    <button class="close-btn" onclick="closeDetail()">&times;</button>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<script>
+  let allResults = [];
+  let currentFilter = '';
+
+  // ─── Initialization ─────────────────────────────────
+  async function init() {
+    const r = await fetch('/api/courts');
+    const data = await r.json();
+    document.getElementById('courtCount').textContent = data.total || '—';
+    const cd = document.getElementById('captchaDot');
+    const cs = document.getElementById('captchaStatus');
+    if (data.captcha) { cd.className = 'dot dot-ok'; cs.textContent = '✅ есть'; }
+    else { cd.className = 'dot dot-warn'; cs.textContent = '⚠️ нет'; }
+    toggleMode();
+    loadCourtInfo('sverdlov--perm');
+  }
+  init();
+
+  // ─── Court search ───────────────────────────────────
+  let courtTimer;
+  function searchCourts(q) {
+    clearTimeout(courtTimer);
+    const el = document.getElementById('courtResults');
+    if (q.length < 2) { el.style.display = 'none'; return; }
+    courtTimer = setTimeout(async () => {
+      const r = await fetch('/api/courts?q=' + encodeURIComponent(q));
+      const list = await r.json();
+      el.innerHTML = list.map(c => `<div onclick="selectCourt('${c.subdomain}','${c.name}')">${c.name}</div>`).join('');
+      el.style.display = list.length ? 'block' : 'none';
+    }, 300);
+  }
+  function selectCourt(id, name) {
+    document.getElementById('courtId').value = id;
+    document.getElementById('courtResults').style.display = 'none';
+    loadCourtInfo(id);
+  }
+  function clearCourt() {
+    document.getElementById('courtSearch').value = '';
+    document.getElementById('courtResults').style.display = 'none';
+  }
+  async function loadCourtInfo(id) {
+    const el = document.getElementById('courtInfo');
+    try {
+      const r = await fetch('/api/courts/' + encodeURIComponent(id));
+      const c = await r.json();
+      el.textContent = c.name + ' | ' + c.code + ' | ' + c.region;
+    } catch { el.textContent = 'Суд не найден в справочнике'; }
+  }
+
+  // ─── Mode toggle ────────────────────────────────────
+  function toggleMode() {
+    const mode = document.getElementById('searchMode').value;
+    document.getElementById('caseFields').style.display = mode === 'case' ? 'block' : 'none';
+    document.getElementById('partyFields').style.display = mode === 'party' ? 'block' : 'none';
+  }
+
+  // ─── Search ─────────────────────────────────────────
+  async function doSearch() {
+    const mode = document.getElementById('searchMode').value;
+    const courtId = document.getElementById('courtId').value.trim();
+    if (!courtId) { alert('Укажите ID суда'); return; }
+
+    const btn = document.getElementById('searchBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Поиск…';
+
+    try {
+      let body;
+      if (mode === 'case') {
+        const num = document.getElementById('caseNumber').value.trim();
+        if (!num) { alert('Введите номер дела'); btn.disabled = false; btn.innerHTML = '🔍 Найти'; return; }
+        body = { courtId, caseNumber: num };
+        const r = await fetch('/api/search/case-number', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const data = await r.json();
+        showResults(data.results, data.count);
+      } else {
+        const def = document.getElementById('defendant').value.trim();
+        const from = document.getElementById('dateFrom').value.trim();
+        const to = document.getElementById('dateTo').value.trim();
+        if (!def) { alert('Введите ФИО ответчика или название истца'); btn.disabled = false; btn.innerHTML = '🔍 Найти'; return; }
+        body = { courtId, defendant: def, plaintiff: '', from: from || undefined, to: to || undefined };
+        const r = await fetch('/api/search/party', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const data = await r.json();
+        showResults(data.results, data.count);
+      }
+    } catch (err) {
+      document.getElementById('resultsTable').innerHTML = `<div class="empty"><h3>❌ Ошибка</h3><p>${err.message}</p></div>`;
+    }
+    btn.disabled = false;
+    btn.innerHTML = '🔍 Найти';
+  }
+
+  function showResults(results, count) {
+    allResults = results;
+    document.getElementById('emptyState').style.display = 'none';
+    const info = document.getElementById('resultInfo');
+    info.textContent = `Найдено ${count || results.length} дел`;
+    renderResults();
+  }
+
+  function renderResults() {
+    const filtered = currentFilter ? allResults.filter(r => r.courtType === currentFilter) : allResults;
+    const tbody = filtered.map(r => `
+      <tr onclick="openDetail('${r.caseNumber}', '${r.caseUrl}', '${r.uid}')" style="cursor:pointer">
+        <td><b>${esc(r.caseNumber)}</b></td>
+        <td><span class="badge badge-${r.courtType}">${r.courtType || '?'}</span></td>
+        <td>${esc(r.judge || '—')}</td>
+        <td>${esc(r.result || '—').substring(0, 40)}</td>
+        <td>${r.legalForceDate || '—'}</td>
+        <td>${r.filingDate || '—'} → ${r.decisionDate || '—'}</td>
+      </tr>`).join('');
+    
+    document.getElementById('resultsTable').innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Номер дела</th><th>Тип</th><th>Судья</th><th>Результат</th><th>Вступило в силу</th><th>Поступление → Решение</th>
+        </tr></thead>
+        <tbody>${tbody || '<tr><td colspan="6" style="text-align:center;color:#64748b;padding:30px">Нет результатов</td></tr>'}</tbody>
+      </table>`;
+    document.getElementById('resultInfo').textContent = `Найдено ${filtered.length} из ${allResults.length} дел${currentFilter ? ' (фильтр: ' + currentFilter + ')' : ''}`;
+  }
+
+  function filterType(el, type) {
+    document.querySelectorAll('.filters .chip').forEach(c => c.classList.remove('active'));
+    if (type) el.classList.add('active');
+    currentFilter = type;
+    renderResults();
+  }
+
+  // ─── Quick test ─────────────────────────────────────
+  function quickTest(mode, value) {
+    if (mode === 'case') {
+      document.getElementById('searchMode').value = 'case';
+      document.getElementById('caseNumber').value = value;
+    } else {
+      document.getElementById('searchMode').value = 'party';
+      document.getElementById('defendant').value = value;
+    }
+    toggleMode();
+    doSearch();
+  }
+
+  // ─── Detail ─────────────────────────────────────────
+  async function openDetail(caseNumber, caseUrl, uid) {
+    const r = allResults.find(x => x.uid === uid) || {};
+    const courtInfo = await (await fetch('/api/courts/' + encodeURIComponent(r.courtId || ''))).json().catch(() => ({}));
+    
+    document.getElementById('detailContent').innerHTML = `
+      <h2>${esc(caseNumber)}</h2>
+      <div class="case-num"><a href="${esc(caseUrl)}" target="_blank" style="color:#38bdf8">${esc(caseUrl)}</a></div>
+      <table>
+        <tr><td>UID дела</td><td style="font-family:monospace;font-size:12px">${esc(uid)}</td></tr>
+        <tr><td>Тип суда</td><td><span class="badge badge-${r.courtType}">${r.courtType || '?'}</span></td></tr>
+        <tr><td>Суд</td><td>${esc(courtInfo.name || r.courtId || '—')}</td></tr>
+        <tr><td>Судья</td><td>${esc(r.judge || '—')}</td></tr>
+        <tr><td>Дата поступления</td><td>${r.filingDate || '—'}</td></tr>
+        <tr><td>Дата решения</td><td>${r.decisionDate || '—'}</td></tr>
+        <tr><td>Результат</td><td><strong>${esc(r.result || '—')}</strong></td></tr>
+        <tr><td style="color:#4ade80;font-weight:600">Дата вступления в законную силу</td><td style="color:#4ade80;font-weight:600">${r.legalForceDate || '—'}</td></tr>
+      </table>
+    `;
+    document.getElementById('detailOverlay').classList.add('open');
+  }
+
+  function closeDetail() {
+    document.getElementById('detailOverlay').classList.remove('open');
+  }
+
+  function clearResults() {
+    allResults = [];
+    document.getElementById('resultsTable').innerHTML = '';
+    document.getElementById('resultInfo').textContent = '';
+    document.getElementById('emptyState').style.display = 'block';
+  }
+
+  function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>

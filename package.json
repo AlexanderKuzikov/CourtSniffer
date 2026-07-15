@@ -10,10 +10,13 @@
     "search": "npx tsx packages/search/cli.ts",
     "test": "vitest run",
     "tsc": "npx tsc --noEmit",
-    "smoke": "npx tsx packages/search/smoke.ts"
+    "smoke": "npx tsx packages/search/smoke.ts",
+    "viewer": "npx tsx packages/viewer/server.ts",
+    "ui": "npx tsx packages/viewer/server.ts"
   },
   "dependencies": {
     "cheerio": "^1.0.0",
+    "express": "^5.2.1",
     "iconv-lite": "^0.7.3",
     "puppeteer": "^25.3.0"
   },
