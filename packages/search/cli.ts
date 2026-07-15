@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // CLI для CourtSniffer
 
-import { searchByCaseNumber, searchByParty } from './district.js';
+import { getSearchAdapter } from './adapters/registry.js';
+import { findCourtBySubdomain } from './courts.js';
 import type { CourtType } from './types.js';
 
 function parseArgs() {
@@ -38,19 +39,22 @@ CourtSniffer — поиск судебных дел
   --to         Дата поступления по (ДД.ММ.ГГГГ)
 
 Примеры:
-  # Поиск по номеру дела
   npm run search:case -- --court sverdlov--perm --number 2-1234/2024
-
-  # Поиск по ответчику
   npm run search:party -- --court sverdlov--perm --defendant Кислицин --from 01.10.2023 --to 31.10.2023
 `);
     return;
   }
 
   const courtType = (opts.type || 'district') as CourtType;
+  
+  // Lookup court info from directory
+  const courtInfo = findCourtBySubdomain(opts.court);
+  const effectiveType = courtType;
+  
+  const adapter = getSearchAdapter(effectiveType);
   const req = {
     courtId: opts.court,
-    courtType,
+    courtType: effectiveType,
     caseNumber: opts.number,
     defendant: opts.defendant,
     plaintiff: opts.plaintiff,
@@ -58,24 +62,33 @@ CourtSniffer — поиск судебных дел
     filingDateTo: opts.to,
   };
 
-  let results;
-  if (opts.number) {
-    console.error(`🔍 Ищем дело ${opts.number} в ${opts.court}…`);
-    results = await searchByCaseNumber(req);
-  } else {
-    console.error(`🔍 Ищем дела по участникам в ${opts.court}…`);
-    results = await searchByParty(req);
-  }
+  try {
+    let results;
+    if (opts.number) {
+      console.error(`🔍 Ищем дело ${opts.number} в ${opts.court}…`);
+      results = await adapter.searchByCaseNumber(req);
+    } else if (opts.defendant || opts.plaintiff) {
+      console.error(`🔍 Ищем дела по участникам в ${opts.court}…`);
+      results = await adapter.searchByParty(req);
+    } else {
+      console.error('Укажите --number или --defendant');
+      process.exit(1);
+    }
 
-  if (results.length === 0) {
-    console.log(JSON.stringify({ found: false, results: [] }, null, 2));
-    return;
+    console.log(JSON.stringify({
+      found: results.length > 0,
+      count: results.length,
+      results,
+      courtInfo: courtInfo ? {
+        name: courtInfo.name,
+        code: courtInfo.code,
+        region: courtInfo.region,
+      } : null,
+    }, null, 2));
+  } catch (err) {
+    console.error('Ошибка:', err instanceof Error ? err.message : String(err));
+    process.exit(1);
   }
-
-  console.log(JSON.stringify({ found: true, count: results.length, results }, null, 2));
 }
 
-main().catch(err => {
-  console.error('Ошибка:', err.message);
-  process.exit(1);
-});
+main();
