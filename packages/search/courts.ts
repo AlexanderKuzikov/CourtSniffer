@@ -105,12 +105,31 @@ export function findCourtsByRegion(region: string): CourtInfo[] {
     .map(toCourtInfo);
 }
 
+/**
+ * Поиск судов по названию — AND по всем словам запроса (регистронезависимо).
+ * «индустриальный суд» → найдёт «Индустриальный районный суд г. Перми»,
+ * т.к. name содержит И «индустриальный» И «суд».
+ * Слова короче 2 символов игнорируются.
+ */
 export function findCourtsByName(query: string): CourtInfo[] {
-  const q = query.toLowerCase();
+  const words = query.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
+  if (words.length === 0) return [];
   return entries
-    .filter(e => e.name.toLowerCase().includes(q))
+    .filter(e => {
+      const name = e.name.toLowerCase();
+      return words.every(w => name.includes(w));
+    })
     .map(toCourtInfo)
     .slice(0, 50);
+}
+
+/**
+ * Поиск суда по коду (приоритет) или subdomain (fallback).
+ * code теперь основной идентификатор суда, subdomain — технический для URL.
+ * Оба lookup'a O(1) — просто пробуем оба, формат не проверяем.
+ */
+export function findCourtByCodeOrSubdomain(id: string): CourtInfo | null {
+  return findCourtByCode(id) ?? findCourtBySubdomain(id);
 }
 
 export function getTotalCourts(): number {

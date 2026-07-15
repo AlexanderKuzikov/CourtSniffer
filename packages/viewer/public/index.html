@@ -39,6 +39,7 @@
     .court-results { position: absolute; z-index: 10; background: #1e293b; border: 1px solid #334155; border-radius: 6px; max-height: 200px; overflow-y: auto; width: 100%; display: none; }
     .court-results div { padding: 6px 10px; font-size: 12px; cursor: pointer; }
     .court-results div:hover { background: #334155; }
+    .court-results .code { color: #38bdf8; font-family: monospace; margin-right: 6px; }
 
     /* Main content */
     .main { padding: 16px; overflow-y: auto; }
@@ -104,12 +105,12 @@
     <h2>🏛️ Суд</h2>
     <div class="court-search">
       <label>Поиск суда по названию</label>
-      <input id="courtSearch" placeholder="Например: свердловский" oninput="searchCourts(this.value)">
+      <input id="courtSearch" placeholder="Например: индустриальный суд" oninput="searchCourts(this.value)">
       <button class="clear-btn" onclick="clearCourt()">&times;</button>
       <div class="court-results" id="courtResults"></div>
     </div>
-    <label style="margin-top: 8px">ID суда</label>
-    <input id="courtId" value="sverdlov--perm" onchange="loadCourtInfo(this.value)" placeholder="sverdlov--perm">
+    <label style="margin-top: 8px">Код суда</label>
+    <input id="courtCode" value="59RS0007" onchange="loadCourtInfo(this.value)" placeholder="59RS0007">
     <div id="courtInfo" style="font-size:11px;color:#64748b;margin:-4px 0 8px"></div>
 
     <h2>🔍 Режим поиска</h2>
@@ -194,7 +195,7 @@
     if (data.captcha) { cd.className = 'dot dot-ok'; cs.textContent = '✅ есть'; }
     else { cd.className = 'dot dot-warn'; cs.textContent = '⚠️ нет'; }
     toggleMode();
-    loadCourtInfo('sverdlov--perm');
+    loadCourtInfo('59RS0007');
     // Event delegation: клик по строке результата / элементу списка судов
     document.getElementById('resultsTable').addEventListener('click', onResultsClick);
     document.getElementById('courtResults').addEventListener('click', onCourtResultsClick);
@@ -210,20 +211,24 @@
     courtTimer = setTimeout(async () => {
       const r = await fetch('/api/courts?q=' + encodeURIComponent(q));
       const list = await r.json();
-      // data-subdomain — читается через dataset, не исполняется как код
-      el.innerHTML = list.map(c => `<div data-subdomain="${esc(c.subdomain)}">${esc(c.name)}</div>`).join('');
+      // data-code — читается через dataset, не исполняется как код
+      el.innerHTML = list.map(c =>
+        `<div data-code="${esc(c.code)}">` +
+          `<span class="code">${esc(c.code)}</span> ${esc(c.name)}` +
+        `</div>`
+      ).join('');
       el.style.display = list.length ? 'block' : 'none';
     }, 300);
   }
   function onCourtResultsClick(e) {
-    const item = e.target.closest('[data-subdomain]');
+    const item = e.target.closest('[data-code]');
     if (!item) return;
-    selectCourt(item.dataset.subdomain);
+    selectCourt(item.dataset.code);
   }
-  function selectCourt(id) {
-    document.getElementById('courtId').value = id;
+  function selectCourt(code) {
+    document.getElementById('courtCode').value = code;
     document.getElementById('courtResults').style.display = 'none';
-    loadCourtInfo(id);
+    loadCourtInfo(code);
   }
   function clearCourt() {
     document.getElementById('courtSearch').value = '';
@@ -234,7 +239,8 @@
     try {
       const r = await fetch('/api/courts/' + encodeURIComponent(id));
       const c = await r.json();
-      el.textContent = c.name + ' | ' + c.code + ' | ' + c.region;
+      el.textContent = c.name + ' | ' + c.code + ' | регион ' + c.region;
+      document.getElementById('courtCode').value = c.code;
     } catch { el.textContent = 'Суд не найден в справочнике'; }
   }
 
@@ -248,8 +254,8 @@
   // ─── Search ─────────────────────────────────────────
   async function doSearch() {
     const mode = document.getElementById('searchMode').value;
-    const courtId = document.getElementById('courtId').value.trim();
-    if (!courtId) { alert('Укажите ID суда'); return; }
+    const courtCode = document.getElementById('courtCode').value.trim();
+    if (!courtCode) { alert('Укажите код суда'); return; }
 
     const btn = document.getElementById('searchBtn');
     btn.disabled = true;
@@ -260,21 +266,21 @@
       if (mode === 'case') {
         const num = document.getElementById('caseNumber').value.trim();
         if (!num) { alert('Введите номер дела'); btn.disabled = false; btn.innerHTML = '🔍 Найти'; return; }
-        body = { courtId, caseNumber: num };
+        body = { courtId: courtCode, caseNumber: num };
         const r = await fetch('/api/search/case-number', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || 'Ошибка поиска');
-        showResults(data.results, data.count);
+        showResults(data.results, data.count, data.court);
       } else {
         const def = document.getElementById('defendant').value.trim();
         const from = document.getElementById('dateFrom').value.trim();
         const to = document.getElementById('dateTo').value.trim();
         if (!def) { alert('Введите ФИО ответчика или название истца'); btn.disabled = false; btn.innerHTML = '🔍 Найти'; return; }
-        body = { courtId, defendant: def, plaintiff: '', from: from || undefined, to: to || undefined };
+        body = { courtId: courtCode, defendant: def, plaintiff: '', from: from || undefined, to: to || undefined };
         const r = await fetch('/api/search/party', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || 'Ошибка поиска');
-        showResults(data.results, data.count);
+        showResults(data.results, data.count, data.court);
       }
     } catch (err) {
       document.getElementById('resultsTable').innerHTML = `<div class="empty"><h3>❌ Ошибка</h3><p>${esc(err.message)}</p></div>`;
@@ -284,17 +290,17 @@
     btn.innerHTML = '🔍 Найти';
   }
 
-  function showResults(results, count) {
+  function showResults(results, count, court) {
     allResults = results;
     document.getElementById('emptyState').style.display = 'none';
     const info = document.getElementById('resultInfo');
-    info.textContent = `Найдено ${count || results.length} дел`;
+    const courtLabel = court ? ` в ${esc(court.name)} (${esc(court.code)})` : '';
+    info.textContent = `Найдено ${count || results.length} дел${courtLabel}`;
     renderResults();
   }
 
   function renderResults() {
     const filtered = currentFilter ? allResults.filter(r => r.courtType === currentFilter) : allResults;
-    // data-uid — ключ для openDetail; значения берутся из allResults, не из атрибутов
     const tbody = filtered.map((r, i) => `
       <tr data-uid="${esc(r.uid)}" data-idx="${i}" style="cursor:pointer">
         <td><b>${esc(r.caseNumber)}</b></td>
@@ -345,7 +351,8 @@
   async function openDetail(uid) {
     const r = allResults.find(x => x.uid === uid);
     if (!r) return;
-    const courtInfo = await (await fetch('/api/courts/' + encodeURIComponent(r.courtId || ''))).json().catch(() => ({}));
+    const courtId = r.courtCode || r.courtId;
+    const courtInfo = await (await fetch('/api/courts/' + encodeURIComponent(courtId))).json().catch(() => ({}));
     const url = safeUrl(r.caseUrl);
 
     document.getElementById('detailContent').innerHTML = `
@@ -354,7 +361,7 @@
       <table>
         <tr><td>UID дела</td><td style="font-family:monospace;font-size:12px">${esc(r.uid)}</td></tr>
         <tr><td>Тип суда</td><td><span class="badge badge-${esc(r.courtType)}">${esc(r.courtType || '?')}</span></td></tr>
-        <tr><td>Суд</td><td>${esc(courtInfo.name || r.courtId || '—')}</td></tr>
+        <tr><td>Суд</td><td>${esc(courtInfo.name || r.courtCode || r.courtId || '—')} (${esc(r.courtCode || '')})</td></tr>
         <tr><td>Судья</td><td>${esc(r.judge || '—')}</td></tr>
         <tr><td>Дата поступления</td><td>${esc(r.filingDate || '—')}</td></tr>
         <tr><td>Дата решения</td><td>${esc(r.decisionDate || '—')}</td></tr>

@@ -43,10 +43,9 @@ export async function fetchMagistrateHtml(options: MagistrateSessionOptions): Pr
     const captchaText = await client.solveImage(imageBase64);
 
     await page.locator('input[name="captcha-response"]').fill(captchaText);
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }),
-      page.locator('form#kcaptchaForm button[type="submit"]').click(),
-    ]);
+    // msudrf: после капчи контент обновляется без полной перезагрузки (AJAX)
+    await page.locator('form#kcaptchaForm button[type="submit"]').click();
+    await page.waitForNetworkIdle({ timeout: 60000 }).catch(() => {});
 
     html = await page.content();
 
@@ -95,4 +94,4 @@ async function readCaptchaImageAsBase64(page: Page): Promise<string> {
 
 function ensureDir(dir: string): void {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-}
+}

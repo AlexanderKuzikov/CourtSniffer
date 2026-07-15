@@ -50,6 +50,7 @@ function parseResults(html: string, req: SearchRequest): SearchResult[] {
       caseNumber: num,
       caseUrl: href.startsWith('http') ? href : `https://${req.courtId}.sudrf.ru${href}`,
       uid: uidMatch ? uidMatch[1] : '',
+      courtCode: req.courtCode,
       judge: cells.eq(3).text().trim() || null,
       result: cells.eq(5).text().trim() || null,
       legalForceDate: cells.eq(6).text().trim() || null,

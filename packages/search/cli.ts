@@ -2,7 +2,7 @@
 // CourtSniffer CLI
 
 import { getSearchAdapter } from './adapters/registry.js';
-import { findCourtBySubdomain, findCourtsByName } from './courts.js';
+import { findCourtByCodeOrSubdomain, findCourtsByName, findCourtByCode } from './courts.js';
 import type { CourtType } from './types.js';
 
 function parseArgs() {
@@ -21,6 +21,13 @@ function parseArgs() {
 async function main() {
   const opts = parseArgs();
 
+  // Список судов — не требует --court
+  if (opts.list) {
+    const list = findCourtsByName(opts.list);
+    console.log(JSON.stringify(list.slice(0, 30), null, 2));
+    return;
+  }
+
   if (opts.help || !opts.court) {
     console.log(`CourtSniffer v0.1.0 — поиск судебных дел на сайтах РФ
 
@@ -31,7 +38,7 @@ async function main() {
   npm run search:party -- --court <id> --plaintiff <назв.> --from ... --to ...
 
 Параметры:
-  --court      ID суда (напр. sverdlov--perm)
+  --court      Код суда (напр. 59RS0007) или subdomain (sverdlov--perm)
   --type       district | appeal | cassation | magistrate (по умолч. district)
   --number     Номер дела
   --defendant  ФИО ответчика
@@ -41,33 +48,39 @@ async function main() {
   --list       Список судов по названию
 
 Примеры:
-  npm run search:case -- --court sverdlov--perm --number 2-1234/2024
-  npm run search:party -- --court sverdlov--perm --defendant Кислицин
+  npm run search:case -- --court 59RS0007 --number 2-1234/2024
+  npm run search:party -- --court 59RS0007 --defendant Кислицин
   npm run search:party -- --court 6.perm --type magistrate --number 2-586/2026
   npm run search -- --list миров
 `);
     return;
   }
 
-  // Список судов
-  if (opts.list) {
-    const list = findCourtsByName(opts.list);
-    console.log(JSON.stringify(list.slice(0, 30), null, 2));
-    return;
-  }
-
   const courtType = (opts.type || 'district') as CourtType;
-  const courtInfo = findCourtBySubdomain(opts.court);
+  const rawId = opts.court;
+
+  // Сначала пробуем как code, потом как subdomain (fallback)
+  const courtInfo = findCourtByCodeOrSubdomain(rawId);
   if (!courtInfo) {
-    console.error(`⚠️  Суд с ID "${opts.court}" не найден в справочнике.`);
+    console.error(`⚠️  Суд с ID "${rawId}" не найден в справочнике.`);
     console.error('   Используй --list для поиска суда по названию');
     console.error('   Например: npm run search -- --list свердловский');
     process.exit(1);
   }
 
+  // subdomain для URL, code — основной идентификатор
+  const courtCode = courtInfo.code;
+  const courtSubdomain = courtInfo.subdomain;
+  if (!courtSubdomain) {
+    console.error(`⚠️  У суда ${courtCode} (${courtInfo.name}) нет сайта (subdomain).`);
+    console.error('   Поиск по этому суду невозможен.');
+    process.exit(1);
+  }
+
   const adapter = getSearchAdapter(courtType);
   const req = {
-    courtId: opts.court,
+    courtId: courtSubdomain,
+    courtCode,
     courtType,
     caseNumber: opts.number,
     defendant: opts.defendant,

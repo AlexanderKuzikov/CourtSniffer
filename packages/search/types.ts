@@ -1,7 +1,8 @@
 export type CourtType = 'district' | 'appeal' | 'cassation' | 'magistrate';
 
 export interface SearchRequest {
-  courtId: string;
+  courtId: string;       // subdomain для URL (технический)
+  courtCode?: string;    // код суда (59RS0007) — основной идентификатор
   courtType: CourtType;
   caseNumber?: string;
   plaintiff?: string;
@@ -21,6 +22,7 @@ export interface SearchResult {
   decisionDate: string | null;
   parties: { role: string; name: string }[];
   courtId: string;
+  courtCode?: string;   // код суда (59RS0007) — для отображения в UI
   courtType: CourtType;
   matchScore?: number;
 }
