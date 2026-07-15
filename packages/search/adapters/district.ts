@@ -16,9 +16,14 @@ function fetchHtml(url: string): Promise<string> {
       hostname: parsed.hostname,
       path: parsed.pathname + parsed.search,
       rejectUnauthorized: false,
-      timeout: 15000,
+      timeout: 120000,
       headers: { 'User-Agent': 'CourtSniffer/0.1' },
     }, res => {
+      // sudrf.ru может возвращать 403 Forbidden (блокировка по IP/User-Agent)
+      if (res.statusCode && res.statusCode >= 400) {
+        reject(new Error(`HTTP ${res.statusCode} — sudrf.ru временно недоступен`));
+        return;
+      }
       const chunks: Buffer[] = [];
       const ct = res.headers['content-type'] ?? '';
       const cs = ct.match(/charset=([\w-]+)/i);
@@ -28,7 +33,13 @@ function fetchHtml(url: string): Promise<string> {
         try { resolve(iconv.decode(Buffer.concat(chunks), encoding)); }
         catch { resolve(Buffer.concat(chunks).toString('utf8')); }
       });
-    }).on('error', reject).on('timeout', function() { this.destroy(); reject(new Error('timeout')); });
+    }).on('error', (err: Error) => {
+      if (err.message === 'timeout' || (err as NodeJS.ErrnoException).code === 'ETIMEOUT') {
+        reject(new Error('sudrf.ru временно недоступен (таймаут). Попробуйте позже.'));
+      } else {
+        reject(new Error(`Ошибка соединения с sudrf.ru: ${err.message}`));
+      }
+    }).on('timeout', function() { this.destroy(); reject(new Error('sudrf.ru временно недоступен (таймаут). Попробуйте позже.')); });
   });
 }
 

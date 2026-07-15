@@ -78,6 +78,7 @@ interface SearchAdapter {
 | 2026-07-15 | **`findCourtsByName` — AND по словам** — поиск разделяет запрос на слова ≥2 символов. |
 | 2026-07-15 | **Magistrate: captcha + поиск через session-based goto** — после капчи на `op=hl`, поиск через `page.goto` с CP1251. |
 | 2026-07-15 | **`session.ts`: `waitForNetworkIdle` вместо `waitForNavigation`** — msudrf не перезагружает страницу после капчи. |
+| 2026-07-15 | **Timeout 120s для sudrf.ru** — сервер стал очень медленным (30+с). 15с→120с во всех адаптерах, HTTP 403/4xx явная ошибка. |
 
 ## Что дальше
 
@@ -100,7 +101,8 @@ interface SearchAdapter {
 | 2026-07-15 | `d62795a` | feat(ui): Web UI for CourtSniffer |
 | 2026-07-15 | `c8873ea..c782341` | CODE_REVIEW.md (пятиосевое ревью, 3 ревизии) |
 | 2026-07-15 | (pending) | security/robustness — XSS, loadEnvFile, CLI, Map-index, types |
-| **2026-07-15** | **(current)** | **feat: code как ID; AND-поиск; magistrate captcha+session; session.ts fix** |
+| **2026-07-15** | `dc008a1` | **feat: code как ID; AND-поиск; magistrate captcha+session; session.ts fix** |
+| **2026-07-15** | **(pending)** | **fix: timeout 120s для sudrf.ru; HTTP 403/4xx обработка** |
 
 ## Недостатки
 

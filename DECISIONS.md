@@ -4,6 +4,21 @@
 
 ---
 
+## 2026-07-15 (таймауты)
+
+### timeout 120s для sudrf.ru
+sudrf.ru работает крайне медленно (30+ секунд ответ). В пиковые нагрузки
+сервер может не отвечать минуту и более. Увеличено с 15с → 120с во всех
+трёх адаптерах (district, appeal, cassation). Также добавлена обработка
+HTTP 403/4xx — явная ошибка вместо `socket hang up`.
+
+**Итоговые таймауты:**
+- district, appeal, cassation (simpleFetch): 120s
+- magistrate captcha (RuCaptcha): 120s polling
+- magistrate captcha (browser navigation): 60s
+
+---
+
 ## 2026-07-15 (финал)
 
 ### session.ts: waitForNetworkIdle вместо waitForNavigation
