@@ -1,13 +1,19 @@
 # CourtSniffer 🕵️‍♂️
 
+**Поиск судебных дел на сайтах судов РФ.**
+
 [![TypeScript](https://img.shields.io/badge/TypeScript-7.0-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![Node](https://img.shields.io/badge/Node-22-339933?logo=node.js)](https://nodejs.org/)
-[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
+[![Node](https://img.shields.io/badge/Node-24+-339933?logo=node.js)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue)](LICENSE)
 [![Tests](https://img.shields.io/badge/Tests-35_passing-brightgreen)]()
 [![GitHub](https://img.shields.io/badge/GitHub-repo-181717?logo=github)](https://github.com/AlexanderKuzikov/CourtSniffer)
 [![Статус](https://img.shields.io/badge/Статус-Active-success)]()
 
 **CourtSniffer** — поиск судебных дел на сайтах судов РФ через ГАС «Правосудие» (`*.sudrf.ru`, `*.msudrf.ru`).
+
+> 🕵️ **CourtSniffer** ищет дела по номеру, истцу или ответчику на порталах судов. Поддерживает районные суды, апелляцию, кассацию и мировых судей. Автоматически извлекает дату вступления решения в законную силу.
+>
+> 🔗 **Интегрируется с [CourtFlow](https://github.com/AlexanderKuzikov/CourtFlow)** — найденные дела можно сразу отправлять в мониторинг.
 
 ## Возможности
 
@@ -68,7 +74,7 @@ packages/search/
 | Капча (magistrate) | Puppeteer + RuCaptcha |
 | Тесты | vitest |
 | Запуск | tsx (TypeScript Execute) |
-| HTTP | built-in fetch + https (Node 22) |
+| HTTP | built-in fetch + https (Node 24+) |
 
 ## Связанные проекты
 
@@ -77,4 +83,4 @@ packages/search/
 
 ## License
 
-MIT
+Apache-2.0
