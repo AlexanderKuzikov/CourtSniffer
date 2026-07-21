@@ -23,7 +23,7 @@
 | По участникам | ФИО / наименование + дата | ✅ | ✅ | ✅ | ✅ |
 | Дата вступления в силу | Парсинг колонки таблицы | ✅ | ✅ | ✅ | ✅ |
 | Парсинг дела по URL | Извлечение карточки дела | — | — | — | ✅ |
-| Справочник судов | 10 225 судов РФ | ✅ | | | |
+| Справочник судов | 10 287 судов РФ | ✅ | | | |
 | Web UI | Поиск + таблица + детализация | ✅ | | | |
 | Расширенный поиск судов | AND по словам, регистронезависимо | ✅ | | | |
 
@@ -134,7 +134,7 @@ packages/
 │   │   ├── rucaptcha.ts       #   Клиент API v2 (createTask/getTaskResult)
 │   │   └── session.ts         #   Browser-сессия: капча → решение → результат
 │   ├── core/errors.ts         # Совместимый слой для CourtFlow-модулей
-│   ├── data/courts.json       # 10 225 судов РФ (из CourtHarvest2)
+│   ├── data/courts.json       # 10 287 судов РФ (из CourtOktmo)
 │   ├── config.ts              # .env → ключи (опционален, try/catch)
 │   ├── courts.ts              # Map-индексы: bySubdomain, byCode (O(1))
 │   ├── encoding.ts            # CP1251 percent-encoder для legacy PHP-форм
@@ -155,7 +155,7 @@ packages/
 - **CP1251 в URL** — PHP-формы ГАС «Правосудие» ожидают windows-1251 в query-string,
   а `URLSearchParams` всегда кодирует в UTF-8. `encoding.ts` делает ручной
   percent-encoding по CP1251-байтам — без этого поиск по русским ФИО возвращает пусто.
-- **Справочник через `Map`** — 10 225 записей, lookup по subdomain/code за O(1),
+- **Справочник через `Map`** — 10 287 записей, lookup по subdomain/code за O(1),
   строится один раз при загрузке модуля.
 - **Капча через browser-context `fetch`** — `captcha/session.ts` читает изображение
   капчи через `page.evaluate(fetch)` с `credentials:'include'`, а не `goto(imgUrl) +
@@ -194,7 +194,7 @@ Smoke-тест делает живой запрос к `sverdlov--perm.sudrf.ru`
 
 - [x] District поиск (номер + участники) — протестировано
 - [x] Appeal / Cassation — реализованы, требуют проверки на реальных судах
-- [x] Справочник 10 225 судов, CLI, Web UI
+- [x] Справочник 10 287 судов, CLI, Web UI
 - [x] `code` суда как основной идентификатор (вместо subdomain)
 - [x] Расширенный поиск судов — AND по словам в названии
 - [x] Magistrate: captcha + поиск по номеру/участникам + парсинг URL дела
@@ -207,7 +207,7 @@ Smoke-тест делает живой запрос к `sverdlov--perm.sudrf.ru`
 ## Связанные проекты
 
 - [**CourtFlow**](https://github.com/AlexanderKuzikov/CourtFlow) — мониторинг судебных дел (core + viewer + scheduler)
-- [**CourtHarvest2**](https://github.com/AlexanderKuzikov/CourtHarvest2) — сбор справочника судов РФ
+- [**CourtOktmo**](https://github.com/AlexanderKuzikov/CourtOktmo) — сбор справочника судов РФ
 
 ## License
 

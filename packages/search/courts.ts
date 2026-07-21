@@ -1,4 +1,5 @@
-// Справочник судов РФ — данные из CourtHarvest2
+// Справочник судов РФ — унифицированная база (CH2 + CSRF + PSP + OKTMO)
+// Источник: CourtOktmo/data/unified-courts.json
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import type { CourtType } from './types.js';
@@ -8,12 +9,21 @@ const COURTS_PATH = resolve(import.meta.dirname, 'data', 'courts.json');
 interface RawCourtEntry {
   code: string;
   name: string;
-  inn: string;
   court_type: string;
-  court_type_name: string;
   address: string;
-  legal_address: string;
+  index: string;
+  inn: string;
+  ogrn: string;
+  okpo: string;
   website: string;
+  phone: string;
+  oktmo: string;
+  oktmo_method: string;
+  psp_count: number;
+  psp_address_0: string;
+  psp_address_1: string;
+  psp_okmo_0: string;
+  psp_okmo_1: string;
 }
 
 export interface CourtInfo {
@@ -24,6 +34,9 @@ export interface CourtInfo {
   region: string;
   address: string;
   website: string;
+  phone: string;
+  oktmo: string;
+  oktmoMethod: string;
 }
 
 const COURT_TYPE_CODE: Record<string, CourtType> = {
@@ -74,12 +87,20 @@ function toCourtInfo(e: RawCourtEntry): CourtInfo {
     region: extractRegion(e.code),
     address: e.address,
     website: e.website,
+    phone: e.phone || '',
+    oktmo: e.oktmo || '',
+    oktmoMethod: e.oktmo_method || '',
   };
 }
 
-const raw = JSON.parse(readFileSync(COURTS_PATH, 'utf-8')) as { courts: Record<string, RawCourtEntry> };
-const courts = raw.courts;
-const entries = Object.values(courts);
+const raw = JSON.parse(readFileSync(COURTS_PATH, 'utf-8')) as {
+  count: number;
+  version: string;
+  description: string;
+  courts: RawCourtEntry[];
+};
+
+const entries = raw.courts;
 
 // Индексы для O(1)-lookup — критично для viewer (каждый запрос дергает lookup).
 // Строятся один раз при загрузке модуля; findCourtsByName остаётся линейным (текстовый поиск).

@@ -17,7 +17,7 @@
 | Magistrate: поиск по номеру/участникам | ✅ Работает (сессия: captcha → same-session goto) |
 | CLI | ✅ Работает (code + subdomain fallback) |
 | Web UI + API | ✅ Express 5, типизированный, code-based |
-| Справочник судов | ✅ 10 225 записей, O(1)-lookup (Map по code + subdomain) |
+| Справочник судов | ✅ **10 287 записей**, O(1)-lookup (Map по code + subdomain) |
 | Расширенный поиск судов | ✅ AND по словам, регистронезависимо |
 | Smoke test | ✅ Работает |
 | Typecheck | ✅ `tsc --noEmit` чист |
@@ -59,6 +59,15 @@ interface SearchAdapter {
 - **`encoding.ts`** — ручной percent-encoder для CP1251 (URLSearchParams кодирует UTF-8,
   а PHP-формы ГАС «Правосудие» ожидают CP1251 в query-string).
 
+### База судов
+
+- **Источник:** `CourtOktmo/data/unified-courts.json` (CH2 + CSRF + PSP + OKTMO)
+- **Записей:** 10 287 (+62 к CourtHarvest2)
+- **Новые поля:** OKTMO (`oktmo`, `oktmoMethod`), телефон (`phone`), ОГРН, ОКПО, почтовый индекс, PSP-территории
+- **Формат:** массив (был объект) — переписана загрузка в `courts.ts`
+- **Структура полей:** `code`, `name`, `court_type`, `address`, `index`, `inn`, `ogrn`, `okpo`,
+  `website`, `phone`, `oktmo`, `oktmo_method`, `psp_count`, `psp_address_0/1`, `psp_okmo_0/1`
+
 ## Решения
 
 | Дата | Решение |
@@ -79,6 +88,7 @@ interface SearchAdapter {
 | 2026-07-15 | **Magistrate: captcha + поиск через session-based goto** — после капчи на `op=hl`, поиск через `page.goto` с CP1251. |
 | 2026-07-15 | **`session.ts`: `waitForNetworkIdle` вместо `waitForNavigation`** — msudrf не перезагружает страницу после капчи. |
 | 2026-07-15 | **Timeout 120s для sudrf.ru** — сервер стал очень медленным (30+с). 15с→120с во всех адаптерах, HTTP 403/4xx явная ошибка. |
+| **2026-07-21** | **Обновлён справочник судов** — `unified-courts.json` (10287 записей, с OKTMO) вместо `courts.json` из CourtHarvest2. |
 
 ## Что дальше
 
@@ -100,9 +110,9 @@ interface SearchAdapter {
 | 2026-07-15 | `0816d7b` | docs: Russian description, Apache-2.0 license, Node 24+ |
 | 2026-07-15 | `d62795a` | feat(ui): Web UI for CourtSniffer |
 | 2026-07-15 | `c8873ea..c782341` | CODE_REVIEW.md (пятиосевое ревью, 3 ревизии) |
-| 2026-07-15 | (pending) | security/robustness — XSS, loadEnvFile, CLI, Map-index, types |
-| **2026-07-15** | `dc008a1` | **feat: code как ID; AND-поиск; magistrate captcha+session; session.ts fix** |
-| **2026-07-15** | **(pending)** | **fix: timeout 120s для sudrf.ru; HTTP 403/4xx обработка** |
+| 2026-07-15 | `dc008a1` | feat: code как ID; AND-поиск; magistrate captcha+session; session.ts fix |
+| 2026-07-15 | `e680341` | fix: timeout 120s для sudrf.ru; HTTP 403/4xx обработка |
+| **2026-07-21** | *(текущий)* | **feat: обновлён справочник судов — unified-courts.json (10287 записей, OKTMO, телефоны)** |
 
 ## Недостатки
 
